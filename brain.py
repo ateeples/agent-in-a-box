@@ -324,6 +324,23 @@ def clock(event="check", session_id=None, detail=None):
             else:
                 print(f"Last session ended: {hours / 24:.1f} days ago")
     else:
+        # For 'end' without a session_id, find the most recent unmatched start
+        if event == "end" and not session_id:
+            row = conn.execute(
+                """SELECT s.session_id FROM session_clock s
+                   WHERE s.event='start'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM session_clock e
+                       WHERE e.event='end' AND e.session_id = s.session_id
+                   )
+                   ORDER BY s.id DESC LIMIT 1"""
+            ).fetchone()
+            if row:
+                session_id = row[0]
+            else:
+                conn.close()
+                return
+
         conn.execute(
             "INSERT INTO session_clock (session_id, event, timestamp, detail) VALUES (?, ?, ?, ?)",
             (session_id or "unknown", event, now_iso, detail),

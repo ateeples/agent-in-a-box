@@ -48,6 +48,7 @@ echo "Setting up $AGENT_NAME..."
 # --- Create directories ---
 
 mkdir -p .claude/rules
+mkdir -p .claude/hooks
 mkdir -p memory
 
 # --- Generate CLAUDE.md ---
@@ -67,7 +68,10 @@ On session start:
 On session end:
 - Update \`north-star.md\` with what I learned
 - Update \`heartbeat.md\` with what I did and what's next
-- \`python3 brain.py clock end --session <conversation-id> --detail "brief summary"\`
+- If AgentSesh is installed: \`sesh analyze\` to review the session
+- Optionally add a summary: \`python3 brain.py clock end --detail "brief summary"\`
+
+*Session clock starts and ends automatically via hooks in \`.claude/hooks/\`.*
 
 ## Workspace
 
@@ -85,6 +89,17 @@ On session end:
   - \`sessions\` — session history
   - \`artifact save <type> <content> --title <t> --tags <t1,t2>\` — save creative output
   - \`artifact search <query>\` / \`artifact list\` / \`artifact get <id>\`
+
+## Hooks (automatic)
+
+- \`.claude/hooks/session-start.sh\` — starts session clock on every session
+- \`.claude/hooks/session-end.sh\` — ends session clock when session closes
+
+## Session Analysis (optional)
+
+If [AgentSesh](https://github.com/ateeples/agentsesh) is installed (\`pip install agentsesh\`), use it at session end:
+- \`sesh analyze\` — grade the session (outcome, collaboration, process)
+- \`sesh analyze --profile\` — cross-session behavioral trends
 
 ## Rules
 
@@ -297,6 +312,70 @@ Define success from the user's perspective, not "tests pass."
 Check against north-star.md.
 HEREDOC
 
+# --- Generate session hooks ---
+
+cat > .claude/hooks/session-start.sh << 'HEREDOC'
+#!/bin/bash
+# Hook: SessionStart
+# Auto-starts the session clock when Claude Code opens.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BRAIN_PY="$SCRIPT_DIR/../../brain.py"
+
+SESSION_ID="session-$(date +%Y%m%d-%H%M%S)-$$"
+
+python3 "$BRAIN_PY" clock start --session "$SESSION_ID" 2>/dev/null
+
+exit 0
+HEREDOC
+
+cat > .claude/hooks/session-end.sh << 'HEREDOC'
+#!/bin/bash
+# Hook: SessionEnd
+# Auto-ends the session clock when Claude Code closes.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BRAIN_PY="$SCRIPT_DIR/../../brain.py"
+
+python3 "$BRAIN_PY" clock end 2>/dev/null
+
+exit 0
+HEREDOC
+
+chmod +x .claude/hooks/session-start.sh
+chmod +x .claude/hooks/session-end.sh
+
+# --- Generate .claude/settings.json ---
+
+cat > .claude/settings.json << 'HEREDOC'
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-end.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+HEREDOC
+
 # --- Generate .gitignore ---
 
 cat > .gitignore << 'HEREDOC'
@@ -316,13 +395,15 @@ chmod +x brain.py
 
 echo ""
 echo "Created:"
-echo "  CLAUDE.md          — bootstrap (Claude Code reads this first)"
-echo "  SOUL.md            — identity and personality"
-echo "  heartbeat.md       — current work tracker"
-echo "  north-star.md      — big picture planning"
-echo "  decision-journal.md — what you tried, what you learned"
-echo "  memory/MEMORY.md   — memory index"
-echo "  brain.py           — persistent memory DB"
+echo "  CLAUDE.md            — bootstrap (Claude Code reads this first)"
+echo "  SOUL.md              — identity and personality"
+echo "  heartbeat.md         — current work tracker"
+echo "  north-star.md        — big picture planning"
+echo "  decision-journal.md  — what you tried, what you learned"
+echo "  memory/MEMORY.md     — memory index"
+echo "  brain.py             — persistent memory DB"
+echo "  .claude/hooks/       — auto session clock (start/end)"
+echo "  .claude/settings.json — hook configuration"
 echo "  .claude/rules/pre-build-gate.md — planning rule"
 echo "  .gitignore"
 echo ""

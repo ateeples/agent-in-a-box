@@ -41,6 +41,8 @@ Claude reads `CLAUDE.md` automatically and follows the bootstrap sequence — lo
 | `decision-journal.md` | Institutional memory — what was tried, what worked, what didn't. |
 | `memory/MEMORY.md` | Memory index — pointers to detailed memory files. |
 | `brain.py` | Persistent memory DB — store/recall/search across sessions. |
+| `.claude/hooks/` | Session hooks — auto-start/end the clock when Claude opens and closes. |
+| `.claude/settings.json` | Hook configuration — wires hooks to Claude Code events. |
 | `.claude/rules/pre-build-gate.md` | Planning rule — 6 questions before building anything non-trivial. |
 
 ## Using brain.py
@@ -60,10 +62,10 @@ python3 brain.py list
 # Remove a memory
 python3 brain.py forget "api-design"
 
-# Session tracking
-python3 brain.py clock start --session abc123
-python3 brain.py clock end --session abc123 --detail "shipped auth module"
-python3 brain.py sessions
+# Session tracking (hooks handle start/end automatically)
+python3 brain.py clock                        # check current time + last session gap
+python3 brain.py clock end --detail "shipped auth module"  # add a summary to current session
+python3 brain.py sessions                     # list recent sessions with durations
 
 # Save creative output (essays, specs, good writing)
 python3 brain.py artifact save essay "The key insight was..." --title "On Testing" --tags "testing,philosophy"
@@ -74,6 +76,37 @@ python3 brain.py artifact get 1
 # Stats
 python3 brain.py stats
 ```
+
+## Session Hooks
+
+The template includes [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) that automatically track session timing:
+
+- **Session start**: Creates a timestamped session ID and starts the clock via `brain.py`
+- **Session end**: Finds the active session and records when it ended
+
+This happens silently in the background — no manual `clock start` / `clock end` needed. Your agent can still call `brain.py sessions` to see session history and durations.
+
+The hooks live in `.claude/hooks/` and are configured in `.claude/settings.json`. You can add your own hooks (e.g., auto-running tests, checking git status) by adding scripts and wiring them in settings.json.
+
+## Session Analysis (optional)
+
+If you want to analyze your agent's behavior across sessions, install [AgentSesh](https://github.com/ateeples/agentsesh):
+
+```bash
+pip install agentsesh
+```
+
+Then at the end of a session (or any time):
+
+```bash
+# Grade a single session
+sesh analyze
+
+# See behavioral trends across sessions
+sesh analyze --profile
+```
+
+AgentSesh scores sessions on outcome (did it ship?), collaboration (how well did human and AI work together?), and process (testing, commit cadence, tool usage). The CLAUDE.md template already includes `sesh analyze` in the session-end routine.
 
 ## The Planning System
 
