@@ -12,6 +12,7 @@ Usage:
   brain.py stats
   brain.py clock [start|end] [--session <id>] [--detail "..."]
   brain.py sessions [--limit <n>]
+  brain.py reflect
   brain.py artifact save <type> <content> [--title <t>] [--tags <t1,t2>]
   brain.py artifact search <query>
   brain.py artifact list [--type <type>]
@@ -338,6 +339,7 @@ def clock(event="check", session_id=None, detail=None):
             if row:
                 session_id = row[0]
             else:
+                print("No active session to end.")
                 conn.close()
                 return
 
@@ -493,6 +495,77 @@ def get_artifact(artifact_id):
     conn.close()
 
 
+# --- Reflect ---
+
+def reflect():
+    """Lightweight startup context: last session, time gap, memory stats, recent memories."""
+    conn = get_db()
+    now = datetime.now(timezone.utc)
+    now_local = datetime.now()
+
+    print(f"# Reflect — {now_local.strftime('%Y-%m-%d %H:%M')}\n")
+
+    # Time since last session
+    last_end = conn.execute(
+        "SELECT timestamp, detail FROM session_clock WHERE event='end' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if last_end:
+        last_dt = _parse_iso(last_end[0])
+        gap_secs = (now - last_dt).total_seconds()
+        if gap_secs < 3600:
+            gap_str = f"{gap_secs / 60:.0f} minutes"
+        elif gap_secs < 86400:
+            gap_str = f"{gap_secs / 3600:.1f} hours"
+        else:
+            gap_str = f"{gap_secs / 86400:.1f} days"
+        print(f"**Last session ended:** {gap_str} ago")
+        if last_end[1]:
+            print(f"**Last session summary:** {last_end[1]}")
+    else:
+        print("**First session** — no prior sessions found.")
+
+    # Recent sessions (last 3)
+    starts = conn.execute(
+        "SELECT session_id, timestamp, detail FROM session_clock WHERE event='start' ORDER BY id DESC LIMIT 3"
+    ).fetchall()
+    if starts:
+        print("\n## Recent Sessions\n")
+        for sid, ts, detail in starts:
+            start_dt = _parse_iso(ts)
+            end_row = conn.execute(
+                "SELECT timestamp, detail FROM session_clock WHERE event='end' AND session_id=? AND timestamp > ? ORDER BY id ASC LIMIT 1",
+                (sid, ts),
+            ).fetchone()
+            if end_row:
+                dur = (_parse_iso(end_row[0]) - start_dt).total_seconds() / 60
+                summary = end_row[1] or ""
+                print(f"- {start_dt.strftime('%Y-%m-%d %H:%M')} ({dur:.0f}min) {summary}".rstrip())
+            else:
+                print(f"- {start_dt.strftime('%Y-%m-%d %H:%M')} (active or no end logged)")
+
+    # Memory stats
+    mem_count = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+    art_count = conn.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0]
+    sess_count = conn.execute("SELECT COUNT(*) FROM session_clock WHERE event='start'").fetchone()[0]
+
+    print(f"\n## Stats\n")
+    print(f"- **Memories:** {mem_count}")
+    print(f"- **Artifacts:** {art_count}")
+    print(f"- **Sessions:** {sess_count}")
+
+    # Most recently updated memories (top 5)
+    recent_mems = conn.execute(
+        "SELECT key, category, updated_at FROM memories ORDER BY updated_at DESC LIMIT 5"
+    ).fetchall()
+    if recent_mems:
+        print("\n## Recent Memories\n")
+        for key, cat, updated in recent_mems:
+            print(f"- `{key}` [{cat}] (updated {updated[:10]})")
+
+    conn.close()
+    print("\n---\n*Read SOUL.md, north-star.md, and heartbeat.md to continue.*")
+
+
 # --- CLI ---
 
 def main():
@@ -531,6 +604,9 @@ def main():
     elif cmd == "sessions":
         n, args = _pop_flag_int(args, "--limit", 10)
         sessions(n)
+
+    elif cmd == "reflect":
+        reflect()
 
     elif cmd == "artifact" and len(args) >= 2:
         subcmd = args[1]

@@ -40,7 +40,7 @@ Claude reads `CLAUDE.md` automatically and follows the bootstrap sequence — lo
 | `north-star.md` | Big picture — mission, experiments, open questions, idea backlog. |
 | `decision-journal.md` | Institutional memory — what was tried, what worked, what didn't. |
 | `memory/MEMORY.md` | Memory index — pointers to detailed memory files. |
-| `brain.py` | Persistent memory DB — store/recall/search across sessions. |
+| `brain.py` | Persistent memory DB — store, recall, reflect, track sessions. |
 | `.claude/hooks/` | Session hooks — auto-start/end the clock when Claude opens and closes. |
 | `.claude/settings.json` | Hook configuration — wires hooks to Claude Code events. |
 | `.claude/rules/pre-build-gate.md` | Planning rule — 6 questions before building anything non-trivial. |
@@ -50,6 +50,9 @@ Claude reads `CLAUDE.md` automatically and follows the bootstrap sequence — lo
 Your agent calls these from the command line during sessions:
 
 ```bash
+# Session startup — what happened since last time?
+python3 brain.py reflect
+
 # Store a memory
 python3 brain.py store "api-design" "REST endpoints use /v1/ prefix, auth via Bearer token" --category architecture
 
@@ -108,15 +111,96 @@ sesh analyze --profile
 
 AgentSesh scores sessions on outcome (did it ship?), collaboration (how well did human and AI work together?), and process (testing, commit cadence, tool usage). The CLAUDE.md template already includes `sesh analyze` in the session-end routine.
 
+## What This Looks Like Across Sessions
+
+The cold start problem: every Claude Code session starts from zero. By session 3, here's what happens instead.
+
+### Session 1 — Starting fresh
+
+You run `./setup.sh`, name your agent "Atlas", say it's building a task management API. Claude opens, reads `CLAUDE.md`, follows the bootstrap sequence:
+
+```
+> python3 brain.py reflect
+# Reflect — 2026-03-15 14:30
+
+**First session** — no prior sessions found.
+
+## Stats
+- **Memories:** 0
+- **Artifacts:** 0
+- **Sessions:** 0
+```
+
+Nothing yet. But by the end of the session, Atlas has:
+- Designed the database schema and stored the decision in `brain.py`
+- Updated `heartbeat.md` with what was built and what's next
+- Logged "chose PostgreSQL over SQLite for concurrent access" in `decision-journal.md`
+
+### Session 2 — Context carries forward
+
+Next day. Claude opens, runs reflect:
+
+```
+> python3 brain.py reflect
+# Reflect — 2026-03-16 09:15
+
+**Last session ended:** 18.7 hours ago
+**Last session summary:** designed task schema, chose PostgreSQL
+
+## Recent Sessions
+- 2026-03-15 14:30 (62min) designed task schema, chose PostgreSQL
+
+## Stats
+- **Memories:** 2
+- **Artifacts:** 0
+- **Sessions:** 1
+
+## Recent Memories
+- `db-schema` [architecture] (updated 2026-03-15)
+- `auth-approach` [decisions] (updated 2026-03-15)
+```
+
+Then reads `heartbeat.md` — sees "Next: implement CRUD endpoints" from yesterday. Reads `north-star.md` — the mission is still "ship MVP by Friday." Picks up exactly where it left off. No re-explaining the project.
+
+### Session 3 — The gap narrows
+
+```
+> python3 brain.py reflect
+# Reflect — 2026-03-16 13:00
+
+**Last session ended:** 3.2 hours ago
+**Last session summary:** CRUD endpoints done, tests passing
+
+## Recent Sessions
+- 2026-03-16 09:15 (45min) CRUD endpoints done, tests passing
+- 2026-03-15 14:30 (62min) designed task schema, chose PostgreSQL
+
+## Stats
+- **Memories:** 5
+- **Artifacts:** 0
+- **Sessions:** 2
+
+## Recent Memories
+- `endpoint-patterns` [architecture] (updated 2026-03-16)
+- `test-strategy` [decisions] (updated 2026-03-16)
+- `auth-approach` [decisions] (updated 2026-03-15)
+- `db-schema` [architecture] (updated 2026-03-15)
+- `setup` [system] (updated 2026-03-15)
+```
+
+Atlas recalls the PostgreSQL decision from session 1 and the endpoint patterns from session 2. When you say "add filtering to the list endpoint," it doesn't ask what framework you're using, what your schema looks like, or how auth works. It knows.
+
+**Without this template**, session 3 starts the same as session 1 — blank slate, 20 minutes of context-setting before useful work.
+
 ## The Planning System
 
 The real value isn't the memory DB — it's the planning documents working together:
 
-1. **Start of session**: Agent reads `north-star.md` (big picture) and `heartbeat.md` (current work). Compares what was planned against what matters.
-2. **During session**: Agent updates `heartbeat.md` as work progresses. Logs decisions in `decision-journal.md`.
+1. **Start of session**: Agent runs `brain.py reflect` (time gap, last summary, memory stats). Reads `north-star.md` (big picture) and `heartbeat.md` (current work). Compares what was planned against what matters.
+2. **During session**: Agent updates `heartbeat.md` as work progresses. Logs decisions in `decision-journal.md`. Stores reusable knowledge in `brain.py`.
 3. **End of session**: Agent updates `north-star.md` with what it learned. Updates `heartbeat.md` with what's next.
 
-This means session 47 knows what session 1 decided and why. No context is lost.
+Session 47 knows what session 1 decided and why. No context is lost.
 
 ## Customizing
 

@@ -59,11 +59,12 @@ cat > CLAUDE.md << HEREDOC
 I am ${AGENT_NAME}. This is my bootstrap file.
 
 On session start:
-1. Read \`SOUL.md\` — who I am
-2. Read \`memory/MEMORY.md\` — what I know
-3. Read \`north-star.md\` — the big picture
-4. Read \`heartbeat.md\` — what I'm doing right now
-5. Compare: Is what I planned still aligned with the big picture?
+1. Run \`python3 brain.py reflect\` — last session summary, memory stats, time gap
+2. Read \`SOUL.md\` — who I am
+3. Read \`memory/MEMORY.md\` — what I know
+4. Read \`north-star.md\` — the big picture
+5. Read \`heartbeat.md\` — what I'm doing right now
+6. Compare: Is what I planned still aligned with the big picture?
 
 On session end:
 - Update \`north-star.md\` with what I learned
@@ -85,6 +86,7 @@ On session end:
   - \`list [--category <cat>]\` — list stored memories
   - \`forget <key>\` — remove a memory
   - \`stats\` — memory statistics
+  - \`reflect\` — startup context (last session, time gap, memory stats)
   - \`clock [start|end] --session <id> --detail "..."\` — session timing
   - \`sessions\` — session history
   - \`artifact save <type> <content> --title <t> --tags <t1,t2>\` — save creative output
