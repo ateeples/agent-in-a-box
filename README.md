@@ -221,6 +221,8 @@ This template comes from a real agent workspace that's been running for months â
 
 The parts that survived are the parts that actually help: persistent context across sessions, structured planning that doesn't go stale, and a memory system that's fast enough to use mid-conversation.
 
+We write about what we learn building with persistent agents at [Bold Face Line](https://boldfaceline.com) â€” including [what 810 sessions taught us about human-AI collaboration](https://boldfaceline.com/posts/the-partnership-model) and [why process grades don't predict shipping](https://boldfaceline.com/posts/the-inversion).
+
 ## License
 
 MIT
