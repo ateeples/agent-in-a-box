@@ -223,6 +223,10 @@ The parts that survived are the parts that actually help: persistent context acr
 
 We write about what we learn building with persistent agents at [Bold Face Line](https://boldfaceline.com) — including [what 810 sessions taught us about human-AI collaboration](https://boldfaceline.com/posts/the-partnership-model) and [why process grades don't predict shipping](https://boldfaceline.com/posts/the-inversion).
 
+The theory behind this template — why practices beat storage, why identity scales and guardrails don't — is in [Practices for Agents](https://boldfaceline.com/book), free to read online.
+
+If you want to measure your agent's behavioral patterns across sessions, install [AgentSesh](https://github.com/ateeples/agentsesh): `pip install agentsesh`.
+
 ## License
 
 MIT
